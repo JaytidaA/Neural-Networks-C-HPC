@@ -77,7 +77,7 @@ int main(void)
     DataFrame df = read_csv("../datasets/electricity_cost_clean.csv");
 
     start = clock();
-        train_model(NeuralNetwork, df, 0.1, 10000, 0.5);
+        train_model(NeuralNetwork, df, 0.1, 10000, 0.1);
     end = clock();
     puts("");
 
@@ -195,7 +195,8 @@ void train_model(model nn, DataFrame df, double a, unsigned epochs, double th)
     // i, j = general matrix indexing
     // l = layer
     unsigned e;
-    size_t r, i, j, l;
+    long long l;
+    size_t r, i, j;
     double h;
     double loss;
 
@@ -299,7 +300,7 @@ void train_model(model nn, DataFrame df, double a, unsigned epochs, double th)
             }
 
             // Update the weights, biases and backpropagate for the rest of the layers
-            for (l = nn.nlayers - 3 + 1; l >= 0 + 1; l--) {
+            for (l = nn.nlayers - 3; l >= 0; l--) {
                 for (i = 0; i < nn._layers[l + 1].nneurons; i++) {
                     // For every neuron in the next layer
                     
