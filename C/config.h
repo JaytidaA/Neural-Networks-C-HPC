@@ -1,8 +1,8 @@
 #ifndef NN_CONFIG_H
 #define NN_CONFIG_H
 
-#define ACTIVATION(X) sigmoid(X)
-#define ACTIVATION_DERIV(X) sigmoid_deriv(X)
+#define ACTIVATION(X) relu(X)
+#define ACTIVATION_DERIV(X) relu_deriv(X)
 
 const float RSEED = 42.0f;
 

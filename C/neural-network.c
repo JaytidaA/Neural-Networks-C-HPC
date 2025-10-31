@@ -48,36 +48,42 @@ typedef struct {
     connection **_connections;
 } model;
 
-// Assume that final feature is the target feature
+// Assume that final feature is the target feature which has the classes [0, n_classes) \cap \mathbb{Z}
 typedef struct {
     size_t n_samples;
     size_t n_features;
     double **data;
 } DataFrame;
 
+// Important model functions
 model init_model(size_t number_layers, size_t *neurons_per_layer);
-// TODO: Implement read_csv
 DataFrame read_csv(const char *filename);
-void train_model(model neural_network, DataFrame df, double alpha, unsigned epochs, double threshold);
+void train_model(model neural_network, const DataFrame df, double alpha, unsigned epochs, double threshold);
+double *test_model(const model neural_network, const DataFrame df);
+double accuracy_metric(DataFrame df, double *y);
+void free_model(model neural_network);
+void free_dataframe(DataFrame df);
 
 // Important math functions
 static inline double sigmoid(double x);
 static inline double sigmoid_deriv(double x);
+static inline double relu(double x);
+static inline double relu_deriv(double x);
 static inline void softmax(size_t nmemb, neuron *neurons);
 
 int main(void)
 {
     srand((unsigned) RSEED);
 
-    size_t nlayers = 5;
-    size_t npl[] = {8, 10, 4};
-    model NeuralNetwork = init_model(3, npl);
+    size_t nlayers = 4;
+    size_t npl[] = {13, 16, 16, 2};
+    model NeuralNetwork = init_model(nlayers, npl);
     clock_t start, end;
 
-    DataFrame df = read_csv("../datasets/electricity_cost_clean.csv");
+    DataFrame df = read_csv("../datasets/heart_disease_train.csv");
 
     start = clock();
-        train_model(NeuralNetwork, df, 0.1, 10000, 0.1);
+        train_model(NeuralNetwork, df, 0.01, 2000, 0.1);
     end = clock();
     puts("");
 
@@ -85,6 +91,17 @@ int main(void)
         "Time taken to train model in pure C, highly unoptimised code: %lf\n",
         ((double) (end - start)) / CLOCKS_PER_SEC
     );
+
+    free_dataframe(df);
+    df  = read_csv("../datasets/heart_disease_test.csv");
+
+    double *y = test_model(NeuralNetwork, df);
+    double acc = accuracy_metric(df, y);
+    printf("The accuracy of the trained model is: %lf%%\n", acc * 100.0);
+
+    free(y);
+    free_dataframe(df);
+    free_model(NeuralNetwork);
 
     return 0;
 }
@@ -188,7 +205,7 @@ DataFrame read_csv(const char *filename)
     return df;
 }
 
-void train_model(model nn, DataFrame df, double a, unsigned epochs, double th)
+void train_model(model nn, const DataFrame df, double a, unsigned epochs, double th)
 {
     // e = epochs
     // r = rows of df
@@ -305,7 +322,7 @@ void train_model(model nn, DataFrame df, double a, unsigned epochs, double th)
                     // For every neuron in the next layer
                     
                     // Update the bias of the neurons of next layer
-                    double change_bias = (nn._layers[l + 1].neurons[i].value) * (1 - nn._layers[l + 1].neurons[i].value) * (n_changes[l + 1][i].value);
+                    double change_bias = -(n_changes[l + 1][i].value / nn._layers[l + 1].neurons[i].value) * ACTIVATION_DERIV(nn._layers[l + 1].neurons[i].value);
                     n_changes[l + 1][i].bias += change_bias;
 
                     // Update the weights of the connections from this layer to that neuron and backpropagate
@@ -365,6 +382,121 @@ void train_model(model nn, DataFrame df, double a, unsigned epochs, double th)
         return;
 }
 
+double *test_model(const model nn, const DataFrame df)
+{
+    if (df.n_features - 1 != nn._layers[0].nneurons) {
+        fprintf(
+            stderr,
+            "%s: Input vector size error (df.n_features - 1 = %zu) != (nn.input_layer.nneurons = %zu)\n",
+            __func__, df.n_features - 1, nn._layers[0].nneurons
+        );
+        exit(EXIT_FAILURE);        
+    }
+    
+    double *y = (double *) calloc(sizeof(double), df.n_samples);
+    MALLOC_CHECK(y);
+
+    long long l;
+    size_t r, i, j;
+    double h;
+    double max;
+
+    for (r = 0; r < df.n_samples; r++) {
+        // For each sample
+
+        h = 0.0;
+
+        for (i = 0; i < df.n_features - 1; i++) {
+            // Set the initial values
+
+            nn._layers[0].neurons[i].value = df.data[r][i];
+        }
+
+        /* Forward Pass */
+        for (l = 0; l < nn.nlayers - 1; l++) {
+            // Calculate for a layer (this is actually input for layer l + 1)
+
+            for (i = 0; i < nn._layers[l + 1].nneurons; i++) {
+                // Calculate for one neuron (neuron.value)
+
+                // h = g(sum(wx) + b)
+                h = nn._layers[l + 1].neurons[i].bias;
+                for (j = 0; j < nn._layers[l].nneurons; j++) {
+                    // For a single connection \
+                        (connection[l][j][i] = connection from neuron[j] of layer l to neuron[i] of l + 1) \
+                        j = rows, i = columns
+
+                    h += nn._layers[l].neurons[j].value * nn._connections[l][MATINDEX(j, i, nn._layers[l + 1].nneurons)];
+                }
+
+                if (l != nn.nlayers - 2)
+                    nn._layers[l + 1].neurons[i].value = ACTIVATION(h);
+                else
+                    nn._layers[l + 1].neurons[i].value = h;
+            }
+
+            // Calculate for the next layer using values of the previous layers (for loop takes care of this)
+        }
+
+        // Apply softmax to the final output layer (y_hat)
+        softmax(nn._layers[nn.nlayers - 1].nneurons, nn._layers[nn.nlayers - 1].neurons);
+
+        // No need to initialise y since it is already calloced
+        for (i = 0; i < nn._layers[nn.nlayers - 1].nneurons; i++)
+            if (nn._layers[nn.nlayers - 1].neurons[(size_t) y[r]].value < nn._layers[nn.nlayers - 1].neurons[i].value) {
+                y[r] = i;
+            }
+    }
+
+    return y;
+}
+
+double accuracy_metric(DataFrame df, double *y)
+{
+    CHECK_PARAM(y);
+
+    size_t r;
+    unsigned sum = 0;
+    for (r = 0; r < df.n_samples; r++)
+    {
+        if ((unsigned) y[r] == (unsigned) df.data[r][df.n_features - 1])
+            sum++;
+    }
+
+    return (double) sum / df.n_samples;
+}
+
+void free_model(model nn)
+{
+    size_t i = 0;
+
+    // Free the _nconnections array
+    free(nn._nconnections);
+    nn._nconnections = NULL;
+
+    for (i = 0; i < nn.nlayers - 1; i++) {
+        // Free the connections matrix between two layers
+        free(nn._connections[i]);
+        nn._connections[i] = NULL;
+    }
+
+    for (i = 0; i < nn.nlayers; i++) {
+        // Free the neurons of a single layer
+        free(nn._layers[i].neurons);
+        nn._layers[i].neurons = NULL;
+    }
+
+    free(nn._layers);
+    nn._layers = NULL;
+    return;
+}
+
+void free_dataframe(DataFrame df)
+{
+    free(df.data);
+    df.data = NULL;
+}
+
 static inline double sigmoid(double x)
 {
     return 1.0 / (1.0 + exp(-x));
@@ -372,8 +504,17 @@ static inline double sigmoid(double x)
 
 static inline double sigmoid_deriv(double x)
 {
-    double sigm = sigmoid(x);
-    return (sigm) * (1 - sigm);
+    return (x) * (1 - x);
+}
+
+static inline double relu(double x)
+{
+    return (x > 0) ? x : 0;
+}
+
+static inline double relu_deriv(double x)
+{
+    return (x > 0) ? 1 : 0;
 }
 
 static inline void softmax(size_t n, neuron *ns)

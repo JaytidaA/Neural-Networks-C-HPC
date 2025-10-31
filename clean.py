@@ -6,9 +6,11 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
 
 def main():
-    df = pd.read_csv('./datasets/electricity_cost_dataset.csv')
+    df = pd.read_csv('./datasets/heart_cleveland_upload.csv')
 
     # Normalise the input fields numeric
     for col in df.select_dtypes(include = "number").columns:
@@ -16,17 +18,18 @@ def main():
         std = df[col].std()
         df[col] = (df[col] - mean) / std
 
-    # Get the "structure type" column and Label Encode (0 starting) it and make it the last column
-    from sklearn.preprocessing import LabelEncoder
-    le = LabelEncoder()
-    df["structure type"] = le.fit_transform(df["structure type"])
+    X = df.iloc[:, :-1]
+    y = df.iloc[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.8)
 
-    structure_col = df.pop("structure type")
-    df["structure type"] = structure_col
- 
+    df_train = X_train
+    df_train["structure type"] = y_train
+    df_test = X_test
+    df_test["structure type"] = y_test
 
     # Save the datasets accordingly
-    df.to_csv(f"./datasets/electricity_cost_clean.csv", index = False)
+    df_train.to_csv(f"./datasets/heart_disease_train.csv", index = False)
+    df_test.to_csv(f"./datasets/heart_disease_test.csv", index = False)
 
 if __name__ == "__main__":
     main()
