@@ -370,7 +370,7 @@ void train_model(model nn, const DataFrame df, double a, unsigned epochs, double
         free(w_changes);
 
         loss /= df.n_samples;
-        printf("[%u/%u] Current loss: %lf, threshold: %lf\r", e, epochs, loss, th);
+        // printf("[%u/%u] Current loss: %lf, threshold: %lf\r", e, epochs, loss, th);
 
         if (loss < th) {
             puts("Good enough loss achieved stopping early                                    ");
