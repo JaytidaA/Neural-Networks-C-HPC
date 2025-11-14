@@ -76,7 +76,7 @@ int main(void)
     srand((unsigned) RSEED);
 
     size_t nlayers = 4;
-    size_t npl[] = {13, 16, 16, 2};
+    size_t npl[] = {14, 16, 16, 2};
     model NeuralNetwork = init_model(nlayers, npl);
     clock_t start, end;
 
@@ -88,7 +88,7 @@ int main(void)
     puts("");
 
     printf(
-        "Time taken to train model in pure C, highly unoptimised code: %lf\n",
+        "Time taken to train model: %lf\n",
         ((double) (end - start)) / CLOCKS_PER_SEC
     );
 
@@ -141,7 +141,6 @@ model init_model(size_t nl, size_t *npl)
     };
 }
 
-// Imma be real with you, I asked ChatGPT to help me write this function
 DataFrame read_csv(const char *filename)
 {
     CHECK_PARAM(filename);
@@ -265,9 +264,9 @@ void train_model(model nn, const DataFrame df, double a, unsigned epochs, double
                     // h = g(sum(wx) + b)
                     h = nn._layers[l + 1].neurons[i].bias;
                     for (j = 0; j < nn._layers[l].nneurons; j++) {
-                        // For a single connection \
-                           (connection[l][j][i] = connection from neuron[j] of layer l to neuron[i] of l + 1) \
-                           j = rows, i = columns
+                        // For a single connection
+                        // (connection[l][j][i] = connection from neuron[j] of layer l to neuron[i] of l + 1)
+                        // j = rows, i = columns
 
                         h += nn._layers[l].neurons[j].value * nn._connections[l][MATINDEX(j, i, nn._layers[l + 1].nneurons)];
                     }
@@ -342,8 +341,8 @@ void train_model(model nn, const DataFrame df, double a, unsigned epochs, double
         }
 
         // Average changes over each sample
-        // For a single sample, sum over the changes required by a single neuron \
-           to the previous layer's weights and biases
+        // For a single sample, sum over the changes required by a single neuron
+        // to the previous layer's weights and biases
         for (l = 0; l < nn.nlayers; l++) {
             for (i = 0; i < nn._layers[l].nneurons; i++) {
                 nn._layers[l].neurons[i].bias -= a * (n_changes[l][i].bias / (2.0 * df.n_samples));

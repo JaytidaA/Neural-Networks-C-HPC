@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
 def main():
@@ -17,6 +16,8 @@ def main():
         mean = df[col].mean()
         std = df[col].std()
         df[col] = (df[col] - mean) / std
+
+    df = pd.get_dummies(df, columns = ["sex"])
 
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
